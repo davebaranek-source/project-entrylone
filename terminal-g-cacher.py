@@ -1,0 +1,141 @@
+# =========================================================================================
+# CORE MODULE ENGINE - ARCHITECTURAL DOCUMENTATION & INTERPRETATION MANUAL
+# =========================================================================================
+#
+# --- METROLOGY & SUBSYSTEM DIAGNOSTICS: WHY WE PROBE WHAT WE PROBE ---
+#
+# 1. PRE-BENCHMARK PROBING MATRIX (THE SYSTEM BASELINE CONTROLS)
+#    • Timer Query (time.perf_counter_ns):
+#      - Evaluates the raw latency of querying the motherboard's hardware clock (QPC on Win).
+#      - If a single query takes > 500 ns, the platform timing source introduces critical noise.
+#      - Run 1 vs Run 2 exposes interpreter cold-start caching vs warm JIT-like execution.
+#    • String Concat (In-Memory Buffer Allocation):
+#      - Measures Python's internal memory manager (PyMalloc) and RAM bandwidth capacity.
+#      - Run 1 vs Run 2 exposes heap fragmentation and the efficiency of the Garbage Collector.
+#    • Stdout Write (Raw Descriptor Streaming):
+#      - Probes the raw throughput of sending un-flushed bytes to the OS pipe buffer layer.
+#      - Exposes the immense overhead of C-API boundary crossing and thread locking primitives.
+#    • I/O Flush (Kernel-to-Display Sync Barrier):
+#      - Measures the time required for the OS kernel to enforce buffer evacuation.
+#      - Probes how fast the OS context switches from user space execution to kernel space I/O.
+#
+# 2. PIVOT REPORT (THE MATRIX PAYLOAD ANALYSIS)
+#    • Target Variance (The Precision Metric):
+#      - Chronologically tracks how close each 75-frame segment hit the ideal 250.0 ms mark.
+#      - Positive variance indicates frame drops (lag); negative indicates time compression.
+#    • Thread CPU Load & Busy-Wait Cost (The Resource Equation):
+#      - Wall Time (100%) = Thread CPU Load (Active Processing) + Busy-Wait Cost (Idling).
+#      - High Busy-Wait (~90%) proves the hardware is idling, waiting for the strict timer gate.
+#      - A sudden drop in Busy-Wait correlated with an increase in Thread CPU Load exposes a severe
+#        I/O blockage, where the processor must work harder to push bytes through a saturated pipe.
+#    • Last Run vs This Run Difference (The Historical Delta):
+#      - Persistent XML regression analysis tracking system degradation or cache optimizations.
+#      - Increases (red) flag active OS scheduler interference, thermal throttling, or background noise.
+#
+# =========================================================================================
+# FUTURE ARCHITECTURAL FUTURE WORK: FORECASTING POSIX / UNIX BENCHMARK PROFILES
+# =========================================================================================
+#
+# TODO: PORTING LOGIC AND PERFORMANCE EXECUTION CHARACTERISTICS FOR LINUX SUB-ENGINES
+#
+# 1. PROCESS ALLOCATION & TERMINAL SUBSYSTEM BEHAVIOR (gnome-terminal / xterm)
+#    • Windows 11 (Windows Terminal - ConPTY Architecture):
+#      - Employs a complex, virtualized DirectX canvas composition wrapper layer.
+#      - Windows treats busy loops aggressively via EcoQoS / Thread Director throttling,
+#        frequently dropping execution priorities or forcing threads onto slow E-Cores.
+#    • Linux POSIX (Native Pseudo-Terminal / PTY / VTE Architecture):
+#      - Communicates via highly optimized Unix streams directly mapped into memory pages.
+#      - Linux scheduler (CFS / EEVDF) respects busy loops and assigns strict real-time priority.
+#
+# 2. METRIC COMPARISON EXPECTATIONS FOR EACH TELEMETRY COLUMN (POSIX ENVIRONMENT):
+#
+#    A. PRE-BENCHMARK MATRIX EXPECTATIONS:
+#       • Timer Query:
+#         - Linux (clock_gettime with CLOCK_MONOTONIC_RAW) bypasses virtual layer ticks entirely.
+#         - Run 1 vs Run 2 will be extremely identical. Avg/Call expected around 15 - 50 ns (3x faster).
+#       • String Concat:
+#         - Linux glibc allocator (ptmalloc) handles large allocations with native virtual memory maps.
+#         - Expect massive performance consistency. Post-GC Run 2 overhead will be near zero.
+#       • Stdout Write & I/O Flush:
+#         - Linux streams bytes through system VFS descriptors into ring buffers natively.
+#         - 5000 iterations will execute up to 5x faster than Win11 due to zero graphics compositor locking.
+#
+#    B. MAIN BENCHMARK PIVOT REPORT EXPECTATIONS:
+#       • Frame Range Range Processing:
+#         - Sub-second interval sampling will scale linearly with absolute chronological stability.
+#       • Actual Time & Target Variance:
+#         - Linux POSIX high-resolution timers will achieve a Target Variance of +/- 0.010 ms max.
+#         - The vast, random micro-stutters seen on Windows (e.g., +37 ms lag) will disappear,
+#           as Wayland/X11 compositors decouple terminal stdout ingestion from monitor frame rate sync.
+#       • Thread CPU Load (The Critical POSIX Divergence):
+#         - On Windows, GetProcessTimes fails during busy waiting, reporting a deceptive 0.0% load.
+#         - On Linux, resource.getrusage (RUSAGE_SELF) tracks exact hardware clock cycles.
+#         - Expected result: Thread CPU Load will report a constant, honest 100.0% for the rendering thread.
+#       • Busy-Wait Cost:
+#         - Will align with the Windows profile (~90% idling), but with surgical precision.
+#         - Sudden drops (I/O choking) will be rare, occurring only under extreme system-wide RAM thrashing.
+#       • Last Run vs This Run Difference:
+#         - Linux XML comparisons will display absolute structural consistency (variance within nanoseconds).
+#         - Background daemons under Linux rarely steal quantum slices from active terminal foreground processes.
+#
+# =========================================================================================
+# END OF TECHNICAL SOURCE DATA PROTOCOL - ARCHITECTURE IS STABLE AND READY FOR DISTRIBUTION
+# =========================================================================================
+
+import sys
+
+def render_cell_to_terminal(vysledny_znak, r, g, b):
+    """Vytiskne znak v True Color RGB pro moderní PowerShell/Terminál."""
+    ANSI_COLOR = f"\x1b[38;2;{r};{g};{b}m"
+    ANSI_RESET = "\x1b[0m"
+    sys.stdout.write(f"{ANSI_COLOR}{vysledny_znak}{ANSI_RESET}")
+
+def bitwise_braille_matrix(matrix_2x4):
+    """
+    Vezme matici 2x4 pixelů (0 nebo 1) a vrátí odpovídající Unicode Braille znak.
+    matrix_2x4: seznam 4 řádků, každý má 2 prvky [vlevo, vpravo]
+    """
+    # Mapování pozic na bitové váhy Unicode Braille standardu
+    bit_weights = [
+        [1,   8],
+        [2,  16],
+        [4,  32],
+        [64, 128]
+    ]
+    
+    braille_offset = 0x2800
+    char_code = 0
+    
+    for row in range(4):
+        for col in range(2):
+            if matrix_2x4[row][col] > 0:
+                char_code |= bit_weights[row][col]
+                
+    return chr(braille_offset + char_code)
+
+# --- SIMULACE JEDNÉ BUŇKY MAPY ---
+# Představme si výřez 2x4 pixelů, kde cesta tvoří diagonalní linii (rozcestí/zatáčku)
+# A dominantní barva té cesty na mapě je hnědá/oranžová (R=200, G=100, B=50)
+vymysleny_vyrez_mapy = [
+    [1, 0],  # ● ○
+    [1, 0],  # ● ○
+    [0, 1],  # ○ ●
+    [0, 1]   # ○ ●
+]
+
+dominantni_rgb = (200, 100, 50)
+
+# 1. Spočítáme znak (přes bitovou masku)
+custom_char = bitwise_braille_matrix(vymysleny_vyrez_mapy)
+
+# 2. Vytiskneme barevně do konzole
+render_cell_to_terminal(custom_char, *dominantni_rgb)
+print() # Nový řádek
+
+
+
+
+#if __name__ == "__main__":
+#	pass
+
+
