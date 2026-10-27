@@ -84,58 +84,84 @@
 
 import sys
 
-def render_cell_to_terminal(vysledny_znak, r, g, b):
-    """Vytiskne znak v True Color RGB pro moderní PowerShell/Terminál."""
-    ANSI_COLOR = f"\x1b[38;2;{r};{g};{b}m"
-    ANSI_RESET = "\x1b[0m"
-    sys.stdout.write(f"{ANSI_COLOR}{vysledny_znak}{ANSI_RESET}")
+def render_ansi(char, r, g, b):
+    """Vytiskne znak v True Color RGB barvě."""
+    sys.stdout.write(f"\x1b[38;2;{r};{g};{b}m{char}\x1b[0m")
 
-def bitwise_braille_matrix(matrix_2x4):
-    """
-    Vezme matici 2x4 pixelů (0 nebo 1) a vrátí odpovídající Unicode Braille znak.
-    matrix_2x4: seznam 4 řádků, každý má 2 prvky [vlevo, vpravo]
-    """
-    # Mapování pozic na bitové váhy Unicode Braille standardu
-    bit_weights = [
-        [1,   8],
-        [2,  16],
-        [4,  32],
-        [64, 128]
-    ]
-    
-    braille_offset = 0x2800
+def get_braille(matrix_2x4):
+    """Převede matici 2x4 na příslušný Unicode Braille znak."""
+    weights = [[1, 8], [2, 16], [4, 32], [64, 128]]
     char_code = 0
-    
     for row in range(4):
         for col in range(2):
-            if matrix_2x4[row][col] > 0:
-                char_code |= bit_weights[row][col]
-                
-    return chr(braille_offset + char_code)
-
-# --- SIMULACE JEDNÉ BUŇKY MAPY ---
-# Představme si výřez 2x4 pixelů, kde cesta tvoří diagonalní linii (rozcestí/zatáčku)
-# A dominantní barva té cesty na mapě je hnědá/oranžová (R=200, G=100, B=50)
-vymysleny_vyrez_mapy = [
-    [1, 0],  # ● ○
-    [1, 0],  # ● ○
-    [0, 1],  # ○ ●
-    [0, 1]   # ○ ●
-]
-
-dominantni_rgb = (200, 100, 50)
-
-# 1. Spočítáme znak (přes bitovou masku)
-custom_char = bitwise_braille_matrix(vymysleny_vyrez_mapy)
-
-# 2. Vytiskneme barevně do konzole
-render_cell_to_terminal(custom_char, *dominantni_rgb)
-print() # Nový řádek
+            if matrix_2x4[row][col]:
+                char_code |= weights[row][col]
+    return chr(0x2800 + char_code)
 
 
+# --- 1. DEFINICE ZNAKŮ ---
+
+# Velké V v Braillu (2 znaky)
+braille_left_v = get_braille([[1, 0], [1, 0], [0, 1], [0, 1]])
+braille_right_v = get_braille([[0, 1], [0, 1], [1, 0], [1, 0]])
+
+# Malé v v Braillu (2 znaky) - tečky posunuté dolů
+braille_small_left_v = get_braille([[0, 0], [1, 0], [1, 0], [0, 1]])
+braille_small_right_v = get_braille([[0, 0], [0, 1], [0, 1], [1, 0]])
 
 
-#if __name__ == "__main__":
-#	pass
+# --- 2. VYRESLENÍ ŘÁDKU (Původní sekvence) ---
+
+print("--- Ukázka sekvence spritů ---")
+render_ansi(braille_left_v, 255, 255, 255)
+render_ansi(braille_right_v, 255, 255, 255)
+render_ansi(" ", 255, 255, 255)
+render_ansi("V", 255, 255, 255)
+render_ansi(" ", 255, 255, 255)
+render_ansi(braille_left_v, 255, 255, 255)
+render_ansi(" ", 255, 255, 255)
+render_ansi("v", 255, 255, 255)
+print("\n")
 
 
+# --- 3. UKÁZKA BAREVNÉ ŠEDÉ ŠKÁLY ---
+
+print("--- Barevná šedá škála pro standardní znaky ---")
+for i in range(1, 11):
+    gray_val = i * 25
+    char_to_print = "V" if i % 2 == 0 else "v"
+    render_ansi(char_to_print, gray_val, gray_val, gray_val)
+    render_ansi(" ", 255, 255, 255)
+print("\n")
+
+
+# --- 4. TŘETÍ ŘÁDEK: BLOKY VE STUPNÍCH ŠEDI ---
+
+print("--- Třetí řádek: Kompletní sekvence (2x Br. velké, V, 2x Br. malé, v) ---")
+
+def vykresli_kompletnu_sekvenciu(gray_val):
+    # 1. Velké V v Braillu (2 znaky)
+    render_ansi(braille_left_v, gray_val, gray_val, gray_val)
+    render_ansi(braille_right_v, gray_val, gray_val, gray_val)
+    
+    # 2. Klasické velké V
+    render_ansi("V", gray_val, gray_val, gray_val)
+    
+    # 3. Malé v v Braillu (2 znaky)
+    render_ansi(braille_small_left_v, gray_val, gray_val, gray_val)
+    render_ansi(braille_small_right_v, gray_val, gray_val, gray_val)
+    
+    # 4. Klasické malé v
+    render_ansi("v", gray_val, gray_val, gray_val)
+
+# První blok - Světlá (230)
+vykresli_kompletnu_sekvenciu(230)
+sys.stdout.write("   ") # mezera mezi bloky
+
+# Druhý blok - Střední (140)
+vykresli_kompletnu_sekvenciu(140)
+sys.stdout.write("   ")
+
+# Třetí blok - Tmavá (60)
+vykresli_kompletnu_sekvenciu(60)
+print("\n")
