@@ -83,15 +83,23 @@
 # =========================================================================================
 
 import sys
+import math
 
-def render_ansi(char, r, g, b):
-    """Vytiskne znak, kde text (38) i pozadí (48) mají stejnou True Color RGB barvu."""
-    # \x1b[38;2;...m nastavení barvy textu
-    # \x1b[48;2;...m nastavení barvy pozadí buňky
-    sys.stdout.write(f"\x1b[38;2;{r};{g};{b}m\x1b[48;2;{r};{g};{b}m{char}\x1b[0m")
+# Globální rozměry textového terminálu
+TERM_COLS = 48
+TERM_ROWS = 32
 
-def get_braille(matrix_2x4):
-    """Převede matici 2x4 na příslušný Unicode Braille znak."""
+# Reálné rozlišení bitmapy (1 textová buňka = 2x4 sub-pixelů)
+MAP_WIDTH = TERM_COLS * 2   # 96
+MAP_HEIGHT = TERM_ROWS * 4  # 128
+
+def render_foreground(char, r, g, b):
+    """Vytiskne znak. Pozadí zůstává nativně černé, mění se jen barva textu."""
+    sys.stdout.write(f"\x1b[38;2;{r};{g};{b}m{char}\x1b[0m")
+
+def get_braille_char(matrix_2x4):
+    """Převede matici 2x4 na příslušný Unicode Braille znak zapsaný napevno."""
+    # Každá buňka má přesně definované číselné váhy pro bity Unicode standardu
     weights = [[1, 8], [2, 16], [4, 32], [64, 128]]
     char_code = 0
     for row in range(4):
@@ -100,79 +108,79 @@ def get_braille(matrix_2x4):
                 char_code |= weights[row][col]
     return chr(0x2800 + char_code)
 
+# --- SIMULACE VSTUPNÍ BITMAPY MAPY (96 x 128 pixelů) ---
+bitmap_map = [[0 for _ in range(MAP_WIDTH)] for _ in range(MAP_HEIGHT)]
 
-# --- 1. DEFINICE ZNAKŮ ---
+# Vertikální cesta středem (tloušťka 2 pixely)
+for y in range(MAP_HEIGHT):
+    bitmap_map[y][47] = 1
+    bitmap_map[y][48] = 1
 
-# Velké V v Braillu (2 znaky)
-braille_left_v = get_braille([[1, 0], [1, 0], [0, 1], [0, 1]])
-braille_right_v = get_braille([[0, 1], [0, 1], [1, 0], [1, 0]])
+# Odbočka doprava (rozcestí ve tvaru Y nebo T) ve výšce 60
+for x in range(48, MAP_WIDTH):
+    # Šikmá cesta nahoru pod úhlem 45°
+    target_y = 60 - (x - 48)
+    if 0 <= target_y < MAP_HEIGHT:
+        bitmap_map[target_y][x] = 1
+        bitmap_map[target_y + 1][x] = 1
 
-# Malé v v Braillu (2 znaky) - tečky posunuté dolů
-braille_small_left_v = get_braille([[0, 0], [1, 0], [1, 0], [0, 1]])
-braille_small_right_v = get_braille([[0, 0], [0, 1], [0, 1], [1, 0]])
+# --- ENGINE PRO VYKRESLENÍ MAPY SE STMOVÁNÍM ---
 
+print("--- GEOMETRICKÁ MAPA S DETEKCÍ ROZCESTÍ (48x32 buněk) ---")
 
-# --- 2. VYRESLENÍ ŘÁDKU (Původní sekvence) ---
+# Pozice hráče posunutá ke křižovatce, aby byla krásně vidět
+PLAYER_X = 48
+PLAYER_Y = 75  
+MAX_VIDITELNOST = 45.0  # Vzdálenost v pixelech, kde už je absolutní tma
 
-print("--- Ukázka sekvence spritů ---")
-render_ansi(braille_left_v, 255, 255, 255)
-render_ansi(braille_right_v, 255, 255, 255)
-render_ansi(" ", 255, 255, 255)
-render_ansi("V", 255, 255, 255)
-render_ansi(" ", 255, 255, 255)
-render_ansi(braille_left_v, 255, 255, 255)
-render_ansi(" ", 255, 255, 255)
-render_ansi("v", 255, 255, 255)
-print("\n")
-
-
-# --- 3. UKÁZKA BAREVNÉ ŠEDÉ ŠKÁLY ---
-
-print("--- Barevná šedá škála pro standardní znaky ---")
-for i in range(1, 11):
-    gray_val = i * 25
-    char_to_print = "V" if i % 2 == 0 else "v"
-    render_ansi(char_to_print, gray_val, gray_val, gray_val)
-    render_ansi(" ", 255, 255, 255)
-print("\n")
-
-
-# --- 4. TŘETÍ ŘÁDEK: BLOKY VE STUPNÍCH ŠEDI ---
-
-print("--- Třetí řádek: Kompletní sekvence (2x Br. velké, V, 2x Br. malé, v) ---")
-
-def vykresli_kompletnu_sekvenciu(gray_val):
-    # 1. Velké V v Braillu (2 znaky)
-    render_ansi(braille_left_v, gray_val, gray_val, gray_val)
-    render_ansi(braille_right_v, gray_val, gray_val, gray_val)
-    
-    # 2. Klasické velké V
-    render_ansi("V", gray_val, gray_val, gray_val)
-    
-    # 3. Malé v v Braillu (2 znaky)
-    render_ansi(braille_small_left_v, gray_val, gray_val, gray_val)
-    render_ansi(braille_small_right_v, gray_val, gray_val, gray_val)
-    
-    # 4. Klasické malé v
-    render_ansi("v", gray_val, gray_val, gray_val)
-
-# --- 4. TŘETÍ ŘÁDEK: PLYNULÝ PŘECHOD PŘES BARVU POZADÍ ---
-
-print("--- Třetí řádek: Plynulý přechod do černé pomocí stmívání pozadí ---")
-
-POCET_KROKU = 64
-
-for i in range(POCET_KROKU):
-    # Výpočet jasu plynule od 255 (bílá) do 0 (černá)
-    gray_val = int(255 * (1 - (i / POCET_KROKU)))
-    
-    # První polovina přechodu (světlá) 
-    if i < (POCET_KROKU / 2):
-        render_ansi(braille_left_v, gray_val, gray_val, gray_val)
-        render_ansi("V", gray_val, gray_val, gray_val)
-    # Druhá polovina přechodu (tmavá)
-    else:
-        render_ansi(braille_small_left_v, gray_val, gray_val, gray_val)
-        render_ansi("v", gray_val, gray_val, gray_val)
-
-print("\n")
+for t_row in range(TERM_ROWS):
+    for t_col in range(TERM_COLS):
+        
+        # Inicializace sub-matice 2x4 čistými nulami
+        sub_matrix = [[0, 0], [0, 0], [0, 0], [0, 0]]
+        obsahuje_data = False
+        pocet_aktivnich_pixelu = 0
+        
+        for r in range(4):
+            for c in range(2):
+                pixel_x = t_col * 2 + c
+                pixel_y = t_row * 4 + r
+                
+                # Kontrola přetečení okrajů pole
+                if 0 <= pixel_x < MAP_WIDTH and 0 <= pixel_y < MAP_HEIGHT:
+                    if bitmap_map[pixel_y][pixel_x] == 1:
+                        sub_matrix[r][c] = 1
+                        obsahuje_data = True
+                        pocet_aktivnich_pixelu += 1
+        
+        # Výpočet stmívání (vzdálenost středu buňky od pozice hráče)
+        cell_center_x = t_col * 2
+        cell_center_y = t_row * 4
+        dist = math.sqrt((cell_center_x - PLAYER_X)**2 + (cell_center_y - PLAYER_Y)**2)
+        
+        # Lineární stmívání
+        if dist > MAX_VIDITELNOST:
+            factor = 0.0
+        else:
+            factor = 1.0 - (dist / MAX_VIDITELNOST)
+            
+        gray_val = int(255 * factor)
+        
+        # Vyhodnocení a vykreslení buňky
+        if gray_val < 45 or not obsahuje_data:
+            sys.stdout.write(" ")
+        else:
+            # GEOMETRICKÁ DETEKCE ROZCESTÍ:
+            # Pokud se v buňce slévá hlavní cesta i odbočka a jsme v bodě křížení
+            if pocet_aktivnich_pixelu >= 5 and (22 <= t_col <= 26) and (13 <= t_row <= 16):
+                ascii_znak = "V" if gray_val > 130 else "v"
+                render_foreground(ascii_znak, gray_val, gray_val, gray_val)
+            else:
+                # Standardní cesta přes přesný Braille znak
+                braille_char = get_braille_char(sub_matrix)
+                if braille_char == chr(0x2800):
+                    sys.stdout.write(" ")
+                else:
+                    render_foreground(braille_char, gray_val, gray_val, gray_val)
+                
+    sys.stdout.write("\n")  # Konec řádku terminálu
