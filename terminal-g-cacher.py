@@ -85,8 +85,10 @@
 import sys
 
 def render_ansi(char, r, g, b):
-    """Vytiskne znak v True Color RGB barvě."""
-    sys.stdout.write(f"\x1b[38;2;{r};{g};{b}m{char}\x1b[0m")
+    """Vytiskne znak, kde text (38) i pozadí (48) mají stejnou True Color RGB barvu."""
+    # \x1b[38;2;...m nastavení barvy textu
+    # \x1b[48;2;...m nastavení barvy pozadí buňky
+    sys.stdout.write(f"\x1b[38;2;{r};{g};{b}m\x1b[48;2;{r};{g};{b}m{char}\x1b[0m")
 
 def get_braille(matrix_2x4):
     """Převede matici 2x4 na příslušný Unicode Braille znak."""
@@ -154,14 +156,23 @@ def vykresli_kompletnu_sekvenciu(gray_val):
     # 4. Klasické malé v
     render_ansi("v", gray_val, gray_val, gray_val)
 
-# První blok - Světlá (230)
-vykresli_kompletnu_sekvenciu(230)
-sys.stdout.write("   ") # mezera mezi bloky
+# --- 4. TŘETÍ ŘÁDEK: PLYNULÝ PŘECHOD PŘES BARVU POZADÍ ---
 
-# Druhý blok - Střední (140)
-vykresli_kompletnu_sekvenciu(140)
-sys.stdout.write("   ")
+print("--- Třetí řádek: Plynulý přechod do černé pomocí stmívání pozadí ---")
 
-# Třetí blok - Tmavá (60)
-vykresli_kompletnu_sekvenciu(60)
+POCET_KROKU = 64
+
+for i in range(POCET_KROKU):
+    # Výpočet jasu plynule od 255 (bílá) do 0 (černá)
+    gray_val = int(255 * (1 - (i / POCET_KROKU)))
+    
+    # První polovina přechodu (světlá) 
+    if i < (POCET_KROKU / 2):
+        render_ansi(braille_left_v, gray_val, gray_val, gray_val)
+        render_ansi("V", gray_val, gray_val, gray_val)
+    # Druhá polovina přechodu (tmavá)
+    else:
+        render_ansi(braille_small_left_v, gray_val, gray_val, gray_val)
+        render_ansi("v", gray_val, gray_val, gray_val)
+
 print("\n")
