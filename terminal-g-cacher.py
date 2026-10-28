@@ -142,19 +142,17 @@ print("\n")
 print("--- Třetí řádek: Kompletní sekvence (2x Br. velké, V, 2x Br. malé, v) ---")
 
 def vykresli_kompletnu_sekvenciu(gray_val):
-    # 1. Velké V v Braillu (2 znaky)
-    render_ansi(braille_left_v, gray_val, gray_val, gray_val)
-    render_ansi(braille_right_v, gray_val, gray_val, gray_val)
-    
-    # 2. Klasické velké V
-    render_ansi("V", gray_val, gray_val, gray_val)
-    
-    # 3. Malé v v Braillu (2 znaky)
-    render_ansi(braille_small_left_v, gray_val, gray_val, gray_val)
-    render_ansi(braille_small_right_v, gray_val, gray_val, gray_val)
-    
-    # 4. Klasické malé v
-    render_ansi("v", gray_val, gray_val, gray_val)
+    text_gray = 0 if gray_val >= 128 else 255
+    sekvence = (braille_left_v + braille_right_v + "V"
+                + braille_small_left_v + braille_small_right_v + "v")
+    sys.stdout.write(
+        f"\x1b[38;2;{text_gray};{text_gray};{text_gray}m"
+        f"\x1b[48;2;{gray_val};{gray_val};{gray_val}m{sekvence}\x1b[0m"
+    )
+
+for gray_val in range(250, 0, -25):
+    vykresli_kompletnu_sekvenciu(gray_val)
+print("\n")
 
 # --- 4. TŘETÍ ŘÁDEK: PLYNULÝ PŘECHOD PŘES BARVU POZADÍ ---
 
@@ -176,3 +174,13 @@ for i in range(POCET_KROKU):
         render_ansi("v", gray_val, gray_val, gray_val)
 
 print("\n")
+
+
+# --- 5. ČTVRTÝ ŘÁDEK: STANDARDNÍCH 16 BAREV TERMINÁLU ---
+
+print("--- Čtvrtý řádek: 16 barev terminálu (00-15) ---")
+for i in range(16):
+    background = 40 + i if i < 8 else 100 + i - 8
+    foreground = 30 if i in (3, 6, 7) or i >= 8 else 97
+    sys.stdout.write(f"\x1b[{foreground};{background}m{i:02}Vv\x1b[0m")
+print()
