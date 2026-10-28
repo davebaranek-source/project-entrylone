@@ -115,7 +115,8 @@ bitmap_map = [[0 for _ in range(MAP_WIDTH)] for _ in range(MAP_HEIGHT)]
 for y in range(MAP_HEIGHT):
     bitmap_map[y][47] = 1
     bitmap_map[y][48] = 1
-
+    bitmap_map[y][17] = 1
+    bitmap_map[y][18] = 1
 # Odbočka doprava (rozcestí ve tvaru Y nebo T) ve výšce 60
 for x in range(48, MAP_WIDTH):
     # Šikmá cesta nahoru pod úhlem 45°
@@ -131,7 +132,7 @@ print("--- GEOMETRICKÁ MAPA S DETEKCÍ ROZCESTÍ (48x32 buněk) ---")
 # Pozice hráče posunutá ke křižovatce, aby byla krásně vidět
 PLAYER_X = 48
 PLAYER_Y = 75  
-MAX_VIDITELNOST = 45.0  # Vzdálenost v pixelech, kde už je absolutní tma
+MAX_VIDITELNOST = 64.0  # Vzdálenost v pixelech, kde už je absolutní tma
 
 for t_row in range(TERM_ROWS):
     for t_col in range(TERM_COLS):
@@ -160,7 +161,7 @@ for t_row in range(TERM_ROWS):
         
         # Lineární stmívání
         if dist > MAX_VIDITELNOST:
-            factor = 0.0
+            factor = 0.5
         else:
             factor = 1.0 - (dist / MAX_VIDITELNOST)
             
