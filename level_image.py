@@ -204,7 +204,7 @@ def format_sector(cells: list[list[Cell]]) -> str:
 
 
 def main() -> None:
-    image_path = Path(__file__).resolve().parent / "resources" / "Level_1.png"
+    image_path = Path(__file__).resolve().parent / "resources" / "Level_2.png"
     with Image.open(image_path) as image:
         sector = center_sector(image, find_sectors(image))
         rendered = format_sector(convert_sector(image, sector))
